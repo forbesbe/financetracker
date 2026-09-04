@@ -1,0 +1,6 @@
+.idea/
+.venv/
+*.db
+*.xlsx
+__pycache__/
+*.pyc
