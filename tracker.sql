@@ -31,3 +31,13 @@ CREATE TABLE transactions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (source_upload_id) REFERENCES uploads(id)
 );
+
+CREATE TABLE skipped_rows (
+    id INTEGER PRIMARY KEY,
+    upload_id INTEGER NOT NULL,
+    raw_row TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    message TEXT NOT NULL,
+    resolved INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
+);
