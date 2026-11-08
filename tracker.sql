@@ -1,4 +1,4 @@
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     email_address TEXT UNIQUE NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE users (
     salt TEXT NOT NULL
 );
 
-CREATE TABLE uploads (
+CREATE TABLE IF NOT EXISTS uploads (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
     filename TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE uploads (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
     date TEXT NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE transactions (
     FOREIGN KEY (source_upload_id) REFERENCES uploads(id)
 );
 
-CREATE TABLE skipped_rows (
+CREATE TABLE IF NOT EXISTS skipped_rows (
     id INTEGER PRIMARY KEY,
     upload_id INTEGER NOT NULL,
     raw_row TEXT NOT NULL,
