@@ -1,26 +1,9 @@
 import cleaner
 import pandas as pd
-import sqlite3
 import json
 import sqlite3
 from datetime import datetime
-
-DB_PATH = "tracker.db"
-SCHEMA_PATH = "tracker.sql"
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    with open(SCHEMA_PATH) as f:
-        schema = f.read()
-    conn.executescript(schema)
-    conn.commit()
-    conn.close()
-
-init_db()
-
-file_path = "expenses_messy.xlsx" # placeholder
-df = pd.read_excel(file_path)
+import db
 
 def clean_row(row, user_id, source_upload_id):
     try:
@@ -53,24 +36,10 @@ def clean_row(row, user_id, source_upload_id):
         "source_upload_id": source_upload_id
     }
 
-user_id = 1 #placeholder
-source_upload_id = 1 #placeholder
-
-successful_rows = []
-skipped = []
-
-for index, row in df.iterrows():
-    try:
-        cleaned = clean_row(row, user_id, source_upload_id)
-        successful_rows.append(cleaned)
-    except cleaner.RowInvalidError as e:
-        skipped.append({"raw_row": row, "status": e.status, "message": e.message})
-
 def process_upload(file_path, user_id):
     df = pd.read_excel(file_path)
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
+    conn = db.get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -114,13 +83,32 @@ def process_upload(file_path, user_id):
 
     return source_upload_id
 
-'''conn = sqlite3.connect(DB_PATH)
-conn.execute("PRAGMA foreign_keys = ON")
-conn.execute("""
-    INSERT OR IGNORE INTO users (id, username, email_address, password, salt)
-    VALUES (1, 'testuser', 'test@example.com', 'placeholder', 'placeholder')
-""")
-conn.commit()
-conn.close()
+if __name__ == "__main__":
+    db.init_db()
 
-process_upload(file_path, user_id)'''
+    conn = db.get_connection()
+    conn.execute("""
+        INSERT OR IGNORE INTO users (id, first_name, last_name, username, email_address, password, salt)
+        VALUES (1, 'Benjamin', 'Forbes', 'ben', 'ben@example.com', 'hash', 'salt')
+    """)
+    conn.commit()
+    conn.close()
+
+    user_id = 1  # placeholder
+
+    upload_id_1 = process_upload("expenses_clean.xlsx", user_id)
+    upload_id_2 = process_upload("expenses_messy.xlsx", user_id)
+
+    conn = db.get_connection()
+    for uid in (upload_id_1, upload_id_2):
+        row = conn.execute("""
+            SELECT filename, rows_total, rows_inserted, rows_skipped_duplicate, rows_skipped_invalid
+            FROM uploads WHERE id = ?
+        """, (uid,)).fetchone()
+        print(f"upload {uid}: {row}")
+
+    total_transactions = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+    total_skipped_rows = conn.execute("SELECT COUNT(*) FROM skipped_rows").fetchone()[0]
+    print(f"total rows in transactions table: {total_transactions}")
+    print(f"total rows in skipped_rows table: {total_skipped_rows}")
+    conn.close()
