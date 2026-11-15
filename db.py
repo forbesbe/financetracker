@@ -1,4 +1,5 @@
 import sqlite3
+import os
 
 DB_PATH = "tracker.db"
 SCHEMA_PATH = "tracker.sql"
@@ -15,5 +16,16 @@ def init_db():
     with open(SCHEMA_PATH) as f:
         schema = f.read()
     conn.executescript(schema)
+    conn.commit()
+    conn.close()
+
+def clear_db():
+    conn = get_connection()
+    conn.executescript("""
+                       DELETE FROM skipped_rows;
+                       DELETE FROM transactions;
+                       DELETE FROM uploads;
+                       DELETE FROM users;"""
+                       )
     conn.commit()
     conn.close()
