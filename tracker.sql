@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount INTEGER NOT NULL,
     account TEXT NOT NULL,
     source_upload_id INTEGER NOT NULL,
-    UNIQUE (user_id, date, description, amount, account),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (source_upload_id) REFERENCES uploads(id)
 );
@@ -38,8 +37,9 @@ CREATE TABLE IF NOT EXISTS skipped_rows (
     id INTEGER PRIMARY KEY,
     upload_id INTEGER NOT NULL,
     raw_row TEXT NOT NULL,
-    status INTEGER NOT NULL,
-    message TEXT NOT NULL,
+    status INTEGER,
+    message TEXT,
+    is_duplicate INTEGER NOT NULL DEFAULT 0,
     resolved INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
 );

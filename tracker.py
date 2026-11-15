@@ -1,7 +1,6 @@
 import cleaner
 import pandas as pd
 import json
-import sqlite3
 from datetime import datetime
 import db
 
@@ -63,14 +62,26 @@ def process_upload(file_path, user_id):
             rows_skipped_invalid += 1
             continue
 
-        try:
+        cursor.execute("""
+            SELECT 1 FROM transactions
+            WHERE user_id = :user_id AND date = :date AND description = :description
+              AND amount = :amount AND account = :account
+        """, cleaned)
+        existing = cursor.fetchone()
+
+        if existing:
             cursor.execute("""
-                INSERT INTO transactions (user_id, date, description, category, amount, account, source_upload_id)
-                VALUES (:user_id, :date, :description, :category, :amount, :account, :source_upload_id)
-            """, cleaned)
-            rows_inserted += 1
-        except sqlite3.IntegrityError:
+                INSERT INTO skipped_rows (upload_id, raw_row, status, message, is_duplicate)
+                VALUES (?, ?, 0, "Duplicate entry", 1)
+            """, (source_upload_id, json.dumps(row.to_dict(), default=str)))
             rows_skipped_duplicate += 1
+            continue
+
+        cursor.execute("""
+            INSERT INTO transactions (user_id, date, description, category, amount, account, source_upload_id)
+            VALUES (:user_id, :date, :description, :category, :amount, :account, :source_upload_id)
+        """, cleaned)
+        rows_inserted += 1
 
     cursor.execute("""
         UPDATE uploads
