@@ -95,8 +95,8 @@ def process_upload(file_path, user_id):
     return source_upload_id
 
 if __name__ == "__main__":
-    db.clear_db()
     db.init_db()
+    db.clear_db()
 
     conn = db.get_connection()
     conn.execute("""

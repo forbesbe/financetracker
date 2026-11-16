@@ -22,7 +22,7 @@ def clean_account(value):
         value = 'Credit Card'
     return value
 
-date_formats = ['%Y-%m-%d', '%m/%d/%Y', '%m/%d/%y', '%b %d, %Y']
+date_formats = ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%m/%d/%Y', '%m/%d/%y', '%b %d, %Y']
 
 def clean_date(value):
     if pd.isna(value):
