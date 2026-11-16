@@ -1,5 +1,5 @@
 import json
-
+import math
 from flask import Blueprint, request, session
 
 import cleaner
@@ -139,5 +139,42 @@ def resubmit_skipped_row(row_id):
         else:
             response_data = {'status': 1, "message": "Row successfully added to transactions."}
         return json.dumps(response_data), 200, {'Content-Type': 'application/json'}
+    finally:
+        conn.close()
+
+@review_bp.route('/skipped_rows', methods=['GET'])
+def list_skipped_rows():
+    user_id = session.get('user_id')
+    if not user_id:
+        response_data = {'status': 0, "message": "Not logged in."}
+        return json.dumps(response_data), 200, {'Content-Type': 'application/json'}
+
+    conn = db.get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT sr.id, sr.raw_row, sr.status, sr.message, sr.is_duplicate
+            FROM skipped_rows AS sr
+            JOIN uploads AS u ON sr.upload_id = u.id
+            WHERE u.user_id = ? AND sr.resolved = 0
+            ORDER BY sr.id
+        """, (user_id,))
+        results = cursor.fetchall()
+
+        rows = []
+        for row_id, raw_row, status, message, is_duplicate in results:
+            parsed = json.loads(raw_row)
+            parsed = {key: (None if isinstance(value, float) and math.isnan(value) else value)
+                      for key, value in parsed.items()}
+            rows.append({
+                "id": row_id,
+                "is_duplicate": is_duplicate,
+                "status": status,
+                "message": message,
+                "raw_row": parsed
+            })
+
+        response_data = {'status': 1, "rows": rows}
+        return json.dumps(response_data, allow_nan=False), 200, {'Content-Type': 'application/json'}
     finally:
         conn.close()
