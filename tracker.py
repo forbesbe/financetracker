@@ -52,36 +52,23 @@ def process_upload(file_path, user_id):
     rows_skipped_invalid = 0
 
     for index, row in df.iterrows():
+        raw_row_json = json.dumps(row.to_dict(), default=str)
+
         try:
             cleaned = clean_row(row, user_id, source_upload_id)
         except cleaner.RowInvalidError as e:
             cursor.execute("""
-                INSERT INTO skipped_rows (upload_id, raw_row, status, message)
-                VALUES (?, ?, ?, ?)
-            """, (source_upload_id, json.dumps(row.to_dict(), default=str), e.status, e.message))
+                           INSERT INTO skipped_rows (upload_id, raw_row, status, message)
+                           VALUES (?, ?, ?, ?)
+                           """, (source_upload_id, raw_row_json, e.status, e.message))
             rows_skipped_invalid += 1
             continue
 
-        cursor.execute("""
-            SELECT 1 FROM transactions
-            WHERE user_id = :user_id AND date = :date AND description = :description
-              AND amount = :amount AND account = :account
-        """, cleaned)
-        existing = cursor.fetchone()
-
-        if existing:
-            cursor.execute("""
-                INSERT INTO skipped_rows (upload_id, raw_row, status, message, is_duplicate)
-                VALUES (?, ?, 0, "Duplicate entry", 1)
-            """, (source_upload_id, json.dumps(row.to_dict(), default=str)))
+        result = insert_or_flag_duplicate(cursor, cleaned, raw_row_json, source_upload_id)
+        if result == "duplicate":
             rows_skipped_duplicate += 1
-            continue
-
-        cursor.execute("""
-            INSERT INTO transactions (user_id, date, description, category, amount, account, source_upload_id)
-            VALUES (:user_id, :date, :description, :category, :amount, :account, :source_upload_id)
-        """, cleaned)
-        rows_inserted += 1
+        else:
+            rows_inserted += 1
 
     cursor.execute("""
         UPDATE uploads
@@ -93,6 +80,29 @@ def process_upload(file_path, user_id):
     conn.close()
 
     return source_upload_id
+
+def insert_or_flag_duplicate(cursor, cleaned, raw_row_json, upload_id):
+    """Insert a cleaned row into transactions, or flag it in skipped_rows if it
+    matches an existing transaction. Uses the caller's cursor and does not commit.
+    Returns "inserted" or "duplicate"."""
+    cursor.execute("""
+        SELECT 1 FROM transactions
+        WHERE user_id = :user_id AND date = :date AND description = :description
+          AND amount = :amount AND account = :account
+    """, cleaned)
+
+    if cursor.fetchone():
+        cursor.execute("""
+            INSERT INTO skipped_rows (upload_id, raw_row, status, message, is_duplicate)
+            VALUES (?, ?, 0, 'Duplicate entry.', 1)
+        """, (upload_id, raw_row_json))
+        return "duplicate"
+
+    cursor.execute("""
+        INSERT INTO transactions (user_id, date, description, category, amount, account, source_upload_id)
+        VALUES (:user_id, :date, :description, :category, :amount, :account, :source_upload_id)
+    """, cleaned)
+    return "inserted"
 
 if __name__ == "__main__":
     db.init_db()
